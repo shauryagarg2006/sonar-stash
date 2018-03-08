@@ -3,6 +3,7 @@ package org.sonar.plugins.stash;
 import java.io.File;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.List;
@@ -47,9 +48,9 @@ public class StashRequestFacade implements IssuePathResolver {
     this.projectBaseDir = projectBuilder.getProjectBaseDir();
   }
 
-  public List<PostJobIssue> extractIssueReport(Iterable<PostJobIssue> issues) {
+  public List<PostJobIssue> extractIssueReport(Iterable<PostJobIssue> issues, Set<String> codeSmells) {
     return SonarQubeCollector.extractIssueReport(
-        issues, this, config.includeExistingIssues(), config.excludedRules()
+        issues, this, config.includeExistingIssues(), config.excludedRules(), codeSmells
     );
   }
 

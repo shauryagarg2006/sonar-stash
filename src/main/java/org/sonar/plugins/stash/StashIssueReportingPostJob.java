@@ -1,7 +1,11 @@
 package org.sonar.plugins.stash;
 
-import java.util.Optional;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.BatchSide;
@@ -16,6 +20,16 @@ import org.sonar.plugins.stash.client.StashCredentials;
 import org.sonar.plugins.stash.exceptions.StashConfigurationException;
 import org.sonar.plugins.stash.issue.StashDiffReport;
 import org.sonar.plugins.stash.issue.StashUser;
+import org.sonarqube.ws.MediaTypes;
+import org.sonarqube.ws.client.GetRequest;
+import org.sonarqube.ws.client.HttpConnector;
+import org.sonarqube.ws.client.WsClient;
+import org.sonarqube.ws.client.WsClientFactories;
+import org.sonarqube.ws.client.WsRequest;
+import org.sonarqube.ws.client.WsResponse;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 
 @BatchSide
 public class StashIssueReportingPostJob implements PostJob {
@@ -55,7 +69,7 @@ public class StashIssueReportingPostJob implements PostJob {
           sonarQubeServer.getVersion())) {
 
         // Down the rabbit hole...
-        updateStashWithSonarInfo(stashClient, stashCredentials, context.issues());
+        updateStashWithSonarInfo(stashClient, stashCredentials, context.issues(),getJavaCodeSmells());
       }
     } catch (StashConfigurationException e) {
       LOGGER.error("Unable to push SonarQube report to Stash: {}", e.getMessage());
@@ -63,19 +77,52 @@ public class StashIssueReportingPostJob implements PostJob {
     }
   }
 
+  private Set<String> getJavaCodeSmells() {
+	  Set<String> codeSmells = new HashSet<>();
+	  int pageSize = 500;
+	  try {
+		HttpConnector httpConnector = HttpConnector.newBuilder().url(sonarQubeServer.getPublicRootUrl())
+				  .token(config.getSonarQubeLogin()).build();
+		  WsClient wsClient = WsClientFactories.getDefault().newClient(httpConnector);
+		  //Run through pages and add
+		  int fetchCount = 0;
+		  int total = 1;
+		  int pageNumber = 1;
+		  while(total > fetchCount) {
+		  WsRequest getRequest = new GetRequest("/api/rules/search?languages=java&ps="+pageSize+"&p="+pageNumber+"&types=CODE_SMELL&f=templateKey")
+				.setMediaType(MediaTypes.JSON);
+		  WsResponse wsResponse = wsClient.wsConnector().call(getRequest);
+		  String ans = wsResponse.content();
+		  Gson gson = new Gson();
+		  Response response = gson.fromJson(ans, Response.class);
+		  total = response.getTotal();
+		  List<SingleRule> ignore = response.getRules();
+		  codeSmells.addAll(ignore.stream().map(SingleRule::getKey).collect(Collectors.toSet()));
+		  //Increase the number of rules that have been fetched
+		  fetchCount += pageSize;
+		  //Increment the page number
+		  pageNumber += 1; 
+		  }
+	  } catch (Exception e) {
+		  LOGGER.error("Unable to fetch code smells from sonar server: {}", e.getMessage());
+	      LOGGER.debug(STACK_TRACE, e);
+	  }
+	  LOGGER.debug("# Of Code Smells: {} fetched", codeSmells.size());
+	  return codeSmells;
+  }
 
   /*
   * Second part of the code necessary for the executeOn() -- squid:S134
   */
   private void updateStashWithSonarInfo(StashClient stashClient,
-      StashCredentials stashCredentials, Iterable<PostJobIssue> issues) {
+      StashCredentials stashCredentials, Iterable<PostJobIssue> issues, Set<String> codeSmells) {
 
     try {
       int issueThreshold = stashRequestFacade.getIssueThreshold();
       PullRequestRef pr = stashRequestFacade.getPullRequest();
 
       // SonarQube objects
-      List<PostJobIssue> issueReport = stashRequestFacade.extractIssueReport(issues);
+      List<PostJobIssue> issueReport = stashRequestFacade.extractIssueReport(issues,codeSmells);
 
       StashUser stashUser = stashRequestFacade
           .getSonarQubeReviewer(stashCredentials.getUserSlug(), stashClient);
@@ -175,4 +222,36 @@ public class StashIssueReportingPostJob implements PostJob {
       super(exc);
     }
   }
+}
+class Response {
+	List<SingleRule> rules;
+	int total;
+
+	public List<SingleRule> getRules() {
+		return rules;
+	}
+
+	public void setRules(List<SingleRule> rules) {
+		this.rules = rules;
+	}
+
+	public int getTotal() {
+		return total;
+	}
+
+	public void setTotal(int total) {
+		this.total = total;
+	}
+}
+
+class SingleRule {
+	String key;
+
+	public String getKey() {
+		return key.trim();
+	}
+
+	public void setKey(String key) {
+		this.key = key;
+	}
 }

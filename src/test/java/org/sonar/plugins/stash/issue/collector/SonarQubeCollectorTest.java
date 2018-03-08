@@ -1,25 +1,22 @@
 package org.sonar.plugins.stash.issue.collector;
 
-import java.util.HashSet;
-import java.util.Set;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.sonar.plugins.stash.StashPluginUtils.countIssuesBySeverity;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import org.sonar.api.batch.fs.FilePredicate;
-import org.sonar.api.batch.fs.FilePredicates;
-import org.sonar.api.batch.fs.FileSystem;
 import org.sonar.api.batch.fs.InputComponent;
 import org.sonar.api.batch.fs.InputFile;
 import org.sonar.api.batch.fs.internal.DefaultInputFile;
@@ -90,7 +87,7 @@ public class SonarQubeCollectorTest {
   public void testExtractEmptyIssueReport() {
     ArrayList<PostJobIssue> issues = new ArrayList<>();
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules, new HashSet<String>());
     assertEquals(0, report.size());
   }
 
@@ -100,7 +97,7 @@ public class SonarQubeCollectorTest {
     issues.add(issue1);
     issues.add(issue2);
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules, new HashSet<String>());
     assertEquals(2, report.size());
     assertEquals(1, countIssuesBySeverity(report, Severity.BLOCKER));
     assertEquals(1, countIssuesBySeverity(report, Severity.CRITICAL));
@@ -124,7 +121,7 @@ public class SonarQubeCollectorTest {
     ArrayList<PostJobIssue> issues = new ArrayList<>();
     issues.add(issue1);
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules, new HashSet<String>());
     assertEquals(1, report.size());
     assertEquals(1, countIssuesBySeverity(report, Severity.BLOCKER));
     assertEquals(0, countIssuesBySeverity(report, Severity.CRITICAL));
@@ -144,7 +141,7 @@ public class SonarQubeCollectorTest {
     issues.add(issue1);
     issues.add(issue2);
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules, new HashSet<String>());
     assertEquals(1, report.size());
     assertEquals(0, countIssuesBySeverity(report, Severity.BLOCKER));
     assertEquals(1, countIssuesBySeverity(report, Severity.CRITICAL));
@@ -158,7 +155,7 @@ public class SonarQubeCollectorTest {
     issues.add(issue1);
     issues.add(issue2);
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, false, excludedRules, new HashSet<String>());
     assertEquals(1, report.size());
     assertEquals(0, countIssuesBySeverity(report, Severity.BLOCKER));
     assertEquals(1, countIssuesBySeverity(report, Severity.CRITICAL));
@@ -178,7 +175,7 @@ public class SonarQubeCollectorTest {
     issues.add(issue1);
     issues.add(issue2);
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, true, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, true, excludedRules, new HashSet<String>());
     assertEquals(2, report.size());
   }
 
@@ -193,7 +190,7 @@ public class SonarQubeCollectorTest {
 
     excludedRules.add(RuleKey.of("foo", "bar"));
 
-    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, true, excludedRules);
+    List<PostJobIssue> report = SonarQubeCollector.extractIssueReport(issues, ipr, true, excludedRules, new HashSet<String>());
     assertEquals(1, report.size());
     assertEquals("key2", report.get(0).key());
   }
@@ -205,22 +202,22 @@ public class SonarQubeCollectorTest {
 
     assertFalse(
         SonarQubeCollector.shouldIncludeIssue(
-            new DefaultIssue().setNew(false).setInputComponent(ic), ipr, false, er
+            new DefaultIssue().setNew(false).setInputComponent(ic), ipr, false, er, new HashSet<String>()
         )
     );
     assertTrue(
         SonarQubeCollector.shouldIncludeIssue(
-            new DefaultIssue().setNew(false).setInputComponent(ic), ipr, true, er
+            new DefaultIssue().setNew(false).setInputComponent(ic), ipr, true, er, new HashSet<String>()
         )
     );
     assertTrue(
         SonarQubeCollector.shouldIncludeIssue(
-            new DefaultIssue().setNew(true).setInputComponent(ic), ipr, false, er
+            new DefaultIssue().setNew(true).setInputComponent(ic), ipr, false, er, new HashSet<String>()
         )
     );
     assertTrue(
         SonarQubeCollector.shouldIncludeIssue(
-            new DefaultIssue().setNew(true).setInputComponent(ic), ipr, true, er
+            new DefaultIssue().setNew(true).setInputComponent(ic), ipr, true, er, new HashSet<String>()
         )
     );
   }

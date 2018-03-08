@@ -27,19 +27,19 @@ public final class SonarQubeCollector {
    */
   public static List<PostJobIssue> extractIssueReport(
       Iterable<PostJobIssue> issues, IssuePathResolver issuePathResolver,
-      boolean includeExistingIssues, Set<RuleKey> excludedRules) {
+      boolean includeExistingIssues, Set<RuleKey> excludedRules, Set<String> codeSmells) {
     return StreamSupport.stream(
         issues.spliterator(), false)
                         .filter(issue -> shouldIncludeIssue(
                             issue, issuePathResolver,
-                            includeExistingIssues, excludedRules
+                            includeExistingIssues, excludedRules, codeSmells
                         ))
                         .collect(Collectors.toList());
   }
 
   static boolean shouldIncludeIssue(
       PostJobIssue issue, IssuePathResolver issuePathResolver,
-      boolean includeExistingIssues, Set<RuleKey> excludedRules
+      boolean includeExistingIssues, Set<RuleKey> excludedRules, Set<String> codeSmells
   ) {
     if (!includeExistingIssues && !issue.isNew()) {
       if (LOGGER.isDebugEnabled()) {
@@ -54,6 +54,13 @@ public final class SonarQubeCollector {
       }
       return false;
     }
+    
+    if (issue.ruleKey() != null && codeSmells.contains(issue.ruleKey().toString())) {
+        if (LOGGER.isDebugEnabled()) {
+          LOGGER.debug("Issue {} is ignored(CodeSmell), not added to the report", issue.key());
+        }
+        return false;
+      }
 
     String path = issuePathResolver.getIssuePath(issue);
     if (!isProjectWide(issue) && path == null) {

@@ -11,8 +11,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +52,9 @@ public class StashIssueReportingPostJobTest extends StashTest {
   List<PostJobIssue> report;
 
   @Mock
+  Set<String> codeSmells;
+  
+  @Mock
   PostJobContext context;
 
   @Mock
@@ -84,7 +90,7 @@ public class StashIssueReportingPostJobTest extends StashTest {
     when(config.includeAnalysisOverview()).thenReturn(Boolean.TRUE);
 
     when(report.size()).thenReturn(10);
-    when(stashRequestFacade.extractIssueReport(eq(report)))
+    when(stashRequestFacade.extractIssueReport(eq(report),eq(codeSmells)))
         .thenReturn(report);
     when(context.issues()).thenReturn(report);
 
@@ -108,8 +114,10 @@ public class StashIssueReportingPostJobTest extends StashTest {
 
   @Test
   public void testExecuteOn() throws Exception {
-    myJob = new StashIssueReportingPostJob(config, stashRequestFacade, server);
-    myJob.execute(context);
+	  when(stashRequestFacade.extractIssueReport(eq(report),Mockito.anySet()))
+	    .thenReturn(report);
+	  myJob = new StashIssueReportingPostJob(config, stashRequestFacade, server);
+	  myJob.execute(context);
 
     verify(stashRequestFacade, times(0))
         .resetComments(eq(pr), eq(diffReport), eq(stashUser), (StashClient) Mockito.anyObject());
@@ -129,8 +137,9 @@ public class StashIssueReportingPostJobTest extends StashTest {
     when(stashRequestFacade.getIssueThreshold()).thenReturn(10);
 
     List<PostJobIssue> report = mock(ArrayList.class);
+    Set<String> codeSmells = mock(HashSet.class);
     when(report.size()).thenReturn(55);
-    when(stashRequestFacade.extractIssueReport(eq(report)))
+    when(stashRequestFacade.extractIssueReport(eq(report),eq(codeSmells)))
         .thenReturn(report);
 
     myJob = new StashIssueReportingPostJob(config, stashRequestFacade, server);
@@ -189,7 +198,8 @@ public class StashIssueReportingPostJobTest extends StashTest {
   @Test
   public void testExecuteOnWithResetCommentActivated() throws Exception {
     when(config.resetComments()).thenReturn(true);
-
+    when(stashRequestFacade.extractIssueReport(eq(report),Mockito.anySet()))
+    .thenReturn(report);
     myJob = new StashIssueReportingPostJob(config, stashRequestFacade, server);
     myJob.execute(context);
 
